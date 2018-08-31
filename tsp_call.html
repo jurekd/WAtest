@@ -1,0 +1,95 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <script src="tsp.js"></script>
+  <script src="gpu.js"></script>
+  
+</head>
+
+<body>     
+<script type="text/javascript">  
+              function run() {
+
+                tsp_fun = Module.cwrap('tsp', 'number', ['number', 'number', 'number', 'number', 'number']);
+                var pop;
+                var number = 10000;
+
+                var vectorLength = number*2;
+                var points = new Float32Array(vectorLength);
+                var city1 = new Uint32Array(number+1);
+                var city2 = new Uint32Array(number+1);
+                for ( var i=0; i<vectorLength;  i++) {
+                   points[i] = Math.random() * 1000; //Random number 0..99
+                }                 
+                for ( var i=0; i<number;  i=i+1) {
+                city1[i]=i;
+                city2[i]=i+1;
+                }
+                city2[number-1]=0;
+
+                var numBytes1= points.length * points.BYTES_PER_ELEMENT;
+                var numBytes2= city1.length * city1.BYTES_PER_ELEMENT;
+                var numBytes3= city2.length * city2.BYTES_PER_ELEMENT;
+
+                // malloc enough space for the data
+                var ptr1= Module._malloc(numBytes1);
+                var ptr2= Module._malloc(numBytes2);
+                var ptr3= Module._malloc(numBytes3);                
+                // get a bytes-wise view on the newly allocated buffer
+                var heapBytes1= new Float32Array(Module.HEAPF32.buffer, ptr1, numBytes1);
+                var heapBytes2= new Uint8Array(Module.HEAPU8.buffer, ptr2, numBytes2);                
+                var heapBytes3= new Uint8Array(Module.HEAPU8.buffer, ptr3, numBytes3);
+                // copy data into heapBytes
+                heapBytes1.set(new Float32Array(points.buffer));
+                heapBytes2.set(new Uint8Array(city1.buffer));
+                heapBytes3.set(new Uint8Array(city2.buffer));               
+                // call the c function which should modify the vals
+                var startTime = performance.now();
+                var sum = tsp_fun(number,heapBytes1.byteOffset,heapBytes2.byteOffset,heapBytes3.byteOffset);
+
+                
+                // free the heap buffer
+
+                computingTime = (performance.now()-startTime);
+                console.log("WebAssembly - DIST: " + sum + " TIME: "+computingTime);
+
+                Module._free(heapBytes1.byteOffset);
+                Module._free(heapBytes2.byteOffset);
+                Module._free(heapBytes3.byteOffset);
+				
+				const gpu = new GPU();
+				const gpuTSP = gpu.createKernel(function (points,city1,city2) {
+				const c1=city1[this.thread.x];
+				const c2=city2[this.thread.x];
+				const a=sqrt((points[2*c1]-points[2*c2])*(points[2*c1]-points[2*c2])+(points[2*c1+1]-points[2*c2+1])*(points[2*c1+1]-points[2*c2+1]));
+				return a;
+				})
+				.setOutput([number]);
+				startTime = performance.now();
+				dist = gpuTSP(points,city1,city2);
+				  
+				  sum=0.0;
+
+                  for (var i = 0; i < number; i = i + 1) {
+                    sum += dist[i];
+                  }
+				  
+				  computingTime = (performance.now()-startTime);
+                  console.log("GPU - DIST: " + sum + " TIME: "+computingTime);
+
+                  sum=0.0;
+				  var dsum = new Float32Array(number);
+				 startTime = performance.now();
+                  for (var i = 0; i < number; i++) {
+                    sum += Math.sqrt((points[2*city1[i]]-points[2*city2[i]])*(points[2*city1[i]]-points[2*city2[i]])+(points[2*city1[i]+1]-points[2*city2[i]+1])*(points[2*city1[i]+1]-points[2*city2[i]+1]));
+                  }
+				  computingTime = (performance.now()-startTime);
+                  console.log("JavaScript - DIST: " + sum + " TIME: "+computingTime);
+				
+            }
+            </script>  
+     
+</body>
+</html>
+
