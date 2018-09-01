@@ -13,7 +13,7 @@
 
                 tsp_fun = Module.cwrap('tsp', 'number', ['number', 'number', 'number', 'number', 'number']);
                 var pop;
-                var number = 10000;
+                var number = 10;
 
                 var vectorLength = number*2;
                 var points = new Float32Array(vectorLength);
@@ -79,14 +79,14 @@
                   console.log("GPU - DIST: " + sum + " TIME: "+computingTime);
 
                   sum=0.0;
-				  var dsum = new Float32Array(number);
+				  //var dsum = new Float32Array(number);
 				 startTime = performance.now();
                   for (var i = 0; i < number; i++) {
                     sum += Math.sqrt((points[2*city1[i]]-points[2*city2[i]])*(points[2*city1[i]]-points[2*city2[i]])+(points[2*city1[i]+1]-points[2*city2[i]+1])*(points[2*city1[i]+1]-points[2*city2[i]+1]));
                   }
 				  computingTime = (performance.now()-startTime);
                   console.log("JavaScript - DIST: " + sum + " TIME: "+computingTime);
-				
+
             }
             </script>  
      

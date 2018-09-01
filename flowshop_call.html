@@ -1,0 +1,85 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <script src="flowshop.js"></script>
+</head>
+
+<body>
+
+      <script type="text/javascript">         
+                 function run() {
+				  var flowshop_fun = Module.cwrap('_Z8flowshopiiPiS_', 'number', ['number', 'number', 'number','number']);
+                  var n = 800;
+                  var m = 60;
+                  var pop = 30;
+
+                  //var vectorLength = jobs*machines;
+                  //var number = vectorLength / 2;
+                  //var UIvector1 = new Float32Array(vectorLength);    
+                  //var UIvector2 = new Float32Array(vectorLength);
+                  var t = new Uint32Array(n*m);
+                  var o = new Uint32Array(n);
+                  //var W = new Uint32Array(pop);
+                  for ( var i=0; i<n; i++)
+                  {
+                    for ( var j=0; j<m;  j++)
+                     t[i*m+j] = ~~(Math.random() * 100); //Random number 0..99
+                  }
+                    for ( var i=0; i<n;  i++)
+                      o[i] = i; //Random number 0..99
+              
+					for ( var i=0; i<n;  i++)
+                    {
+                        var i1 = ~~(Math.random()*n);
+                        var i2 = ~~(Math.random()*n);
+                        var temp = o[i1];
+                        o[i1]=o[i2];
+                        o[i2]=temp;
+                    } 
+                
+
+                var numBytes1= t.length * t.BYTES_PER_ELEMENT;
+                var numBytes2= o.length * o.BYTES_PER_ELEMENT;
+                //var numBytes3= W.length * W.BYTES_PER_ELEMENT;
+
+                // malloc enough space for the data
+                var ptr1= Module._malloc(numBytes1);
+                var ptr2= Module._malloc(numBytes2);
+                //var ptr3= Module._malloc(numBytes3);                
+                // get a bytes-wise view on the newly allocated buffer
+                var heapBytes1= new Uint8Array(Module.HEAPU8.buffer, ptr1, numBytes1);
+                var heapBytes2= new Uint8Array(Module.HEAPU8.buffer, ptr2, numBytes2);                
+                //var heapBytes3= new Uint8Array(Module.HEAPU8.buffer, ptr3, numBytes3);
+                // copy data into heapBytes
+                heapBytes1.set(new Uint8Array(t.buffer));
+                heapBytes2.set(new Uint8Array(o.buffer));
+                //heapBytes3.set(new Uint8Array(W.buffer));               
+                // call the c function which should modify the vals
+                var startTime = performance.now();
+                var fun=flowshop_fun(n,m,heapBytes1.byteOffset,heapBytes2.byteOffset);
+                var computingTime = (performance.now()-startTime);
+                console.log("WebAssembly - MAKESPAN: " + fun + " TIME: "+computingTime);			
+                Module._free(heapBytes1.byteOffset);
+                Module._free(heapBytes2.byteOffset);
+                //Module._free(heapBytes3.byteOffset);
+				
+				var C = [];
+				startTime = performance.now();
+				C[0] = t[o[0] * m + 0];
+				for (let j = 1; j<m; j++)
+					C[j] = C[j - 1] + t[o[0] * m + j];
+				for (let i = 1; i<n; i++)
+				{
+					C[0] += t[o[i] * m + 0];
+					for (let j = 1; j<m; j++)
+						C[j] = (C[j - 1]>C[j] ? C[j - 1] + t[o[i] * m + j] : C[j] + t[o[i] * m + j]);
+				}
+				fun = C[m - 1];
+				computingTime = (performance.now()-startTime);
+                console.log("JavaScript - MAKESPAN: " + fun + " TIME: "+computingTime);
+            }
+            </script>       
+</body>
+</html>
+

@@ -1,0 +1,188 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <script src="rcpsp.js"></script>
+</head>
+
+<body>
+
+      <script type="text/javascript">         
+              function run() {
+                //var Module = require("./tsp_function.js");
+              
+                 var n = 100;
+                  var k = 4;
+                  var pop = 30;
+                  var pn = 3; // preceding number
+
+                  var p = new Uint32Array(n);
+                  var Rk = new Uint32Array(k);
+                  var rjk = new Uint32Array(n*k);
+                  var Prec = new Uint32Array(n*pn);
+                  var o = new Uint32Array(n);
+
+                  var sum_p = 0;
+                  for (var i = 0; i<n; i++)
+                  {
+                    p[i] = ~~(Math.random() * 10); +1; 
+                    sum_p += p[i];
+                  }
+                  //printf("SumP=%d, ", sum_p);
+
+                  var t = sum_p/2;
+                  for (var j = 0; j<k; j++)
+                  {
+                    Rk[j] = ~~(Math.random() * 30)+15;
+                  }
+
+                  for (var i = 0; i<n; i++)
+                  {
+                    for (var a = 0; a < pn; a++)
+                      if (Math.random()>0.66)
+                        Prec[i * pn + a] = ~~(Math.random() * n);
+                      else
+                        Prec[i * pn + a] = 0;
+                  }
+
+                  for (var i = 0; i<n; i++)
+                  {
+                    for (var j = 0; j<k; j++)
+                        rjk[i*k+j] = ~~(Math.random() * 10)+1; //Random number 0..99
+                  }
+
+                    for ( var j=0; j<n;  j++)
+                      o[j] = j; //Random number 0..99
+              
+                    for ( var j=0; j<n;  j++)
+                    {
+                        var i1 = ~~(Math.random()*n);
+                        var i2 = ~~(Math.random()*n);
+                        var temp = o[i1];
+                        o[i1]=o[i2];
+                        o[i2]=temp;
+                    } 
+
+                var rcpsp_fun = Module.cwrap('_Z5rcpspiiiiPiS_S_S_S_', 'number', ['number', 'number', 'number', 'number', 'number','number','number','number','number']);
+
+                var numBytes1= p.length * p.BYTES_PER_ELEMENT;
+                var numBytes2= Rk.length * Rk.BYTES_PER_ELEMENT;
+                var numBytes3= rjk.length * rjk.BYTES_PER_ELEMENT;
+                var numBytes4= Prec.length * Prec.BYTES_PER_ELEMENT;
+                var numBytes5= o.length * o.BYTES_PER_ELEMENT;
+
+                // malloc enough space for the data
+                var ptr1= Module._malloc(numBytes1);
+                var ptr2= Module._malloc(numBytes2);
+                var ptr3= Module._malloc(numBytes3); 
+                var ptr4= Module._malloc(numBytes1);
+                var ptr5= Module._malloc(numBytes2);          
+                // get a bytes-wise view on the newly allocated buffer
+                var heapBytes1= new Uint8Array(Module.HEAPU8.buffer, ptr1, numBytes1);
+                var heapBytes2= new Uint8Array(Module.HEAPU8.buffer, ptr2, numBytes2);                
+                var heapBytes3= new Uint8Array(Module.HEAPU8.buffer, ptr3, numBytes3);
+                var heapBytes4= new Uint8Array(Module.HEAPU8.buffer, ptr4, numBytes4);
+                var heapBytes5= new Uint8Array(Module.HEAPU8.buffer, ptr5, numBytes5);                
+                // copy data into heapBytes
+                heapBytes1.set(new Uint8Array(p.buffer));
+                heapBytes2.set(new Uint8Array(Rk.buffer));
+                heapBytes3.set(new Uint8Array(rjk.buffer));               
+                heapBytes4.set(new Uint8Array(Prec.buffer));
+                heapBytes5.set(new Uint8Array(o.buffer));
+                // call the c function which should modify the vals
+				var startTime = performance.now();
+                var fun=rcpsp_fun(n,k,pn,t,heapBytes1.byteOffset,heapBytes2.byteOffset,heapBytes3.byteOffset,heapBytes4.byteOffset,heapBytes5.byteOffset);
+
+                var computingTime = (performance.now()-startTime);
+                console.log("WebAssembly - RCPSP: " + fun + " TIME: "+computingTime);
+
+                Module._free(heapBytes1.byteOffset);
+                Module._free(heapBytes2.byteOffset);
+                Module._free(heapBytes3.byteOffset);
+					
+				F = [];
+				D = [];
+				S = [];
+				A = [];
+
+				var startTime = performance.now();
+				//int j = 0;
+				/*for (let i = 0; i < n; i++)
+				{
+					D[i] = 0;
+					S[i] = 0;
+					F[i] = 0;
+				}*/
+				for (let h = 0; h < k; h++)
+				 for (let a = 0; a < t; a++)
+				   A[h*t + a] = 0;
+				for (let j = 0; j < n; j++)
+				{
+					for (let i = 0; i < n; i++)
+					{
+						let ok = 1;
+						if (S[i]>0)
+							ok = 0;
+						else
+						{
+							for (let a = 0; a < pn; a++)
+							{
+								if (Prec[i * pn + a] > 0 && F[Prec[i * pn + a]] == 0)
+									{ok = 0; break;}
+							}
+						}
+						D[i] = ok;
+					}
+					let max = 0;
+					let mi = 0;
+					for (let i = 0; i < n; i++)
+					{
+						if (D[i] == 1 && o[i] > max)
+						{
+							max = o[i];
+							mi = i;
+						}
+					}
+
+					max = 0;
+					for (let a = 0; a < pn; a++)
+					{
+						if (F[Prec[mi * pn + a]] > max)
+						{
+							max = F[Prec[mi * pn + a]];
+						}
+					}
+					let ts;
+					let maxts = 0;
+					for (let h = 0; h < k; h++)
+					{
+						ts = max;
+						while (rjk[mi*k + h] + A[h*t + ts] > Rk[h]) ts++;
+						if (ts > maxts)
+							maxts = ts;
+					}
+					for (let s = maxts; s < maxts + p[mi]; s++)
+						for (let h = 0; h < k; h++)
+							A[h*t + s] += rjk[mi*k + h];
+					F[mi] = maxts + p[mi];
+					//if (maxts > max)
+					//	printf("!");
+					S[mi] = 1;
+					//j++;
+				}
+				let max = 0;
+				for (let i = 0; i < n; i++)
+				{
+					if(F[i] > max)
+					  max = F[i];
+				}
+				//sr += max;
+				fun=max;
+				computingTime = (performance.now()-startTime);
+                console.log("JavaScript - RCPSP: " + fun + " TIME: "+computingTime);
+				console.log()
+			}
+     </script>     
+</body>
+</html>
+
